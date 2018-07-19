@@ -1,0 +1,19 @@
+---
+# tasks file for erinish.dev_containers
+- name: Detect if we're a tagged run
+  command: /bin/true
+  register: normal_run
+  changed_when: False
+  tags:
+    - setup
+
+- name: Setup tasks
+  include_tasks: setup.yml
+  tags:
+    - setup
+
+- name: Setup tasks
+  include_tasks: teardown.yml
+  when: normal_run is not defined
+  tags:
+    - teardown

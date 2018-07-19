@@ -1,0 +1,67 @@
+---
+- block:
+    - name: Create container on local machine
+      lxc_container:
+        name: "{{ item }}"
+        state: started
+        template: centos
+      with_items: "{{ containers }}"
+
+    - name: Wait for container networking
+      wait_for:
+        timeout: 15
+
+    - name: Check again b/c module doesn't get IP first time
+      lxc_container:
+        name: "{{ item }}"
+      with_items: "{{ containers }}"
+      register: container_info
+
+    - name: Add entry to hosts file
+      lineinfile:
+        line: "{{ item.lxc_container.ips[0] + ' ' + item.lxc_container.name }}"
+        path: /etc/hosts
+        insertafter: EOF
+      with_items: "{{ container_info.results }}"
+
+    - name: Install sudo to containers
+      yum:
+        name: sudo
+        installroot: /var/lib/lxc/{{ item }}/rootfs
+        state: installed
+      with_items: "{{ containers }}"
+
+    - name: Add devops user to containers
+      command: chroot /var/lib/lxc/{{ item }}/rootfs useradd devops
+      args:
+        creates: /var/lib/lxc/{{ item }}/rootfs/home/devops
+      with_items: "{{ containers }}"
+
+    - name: Place sudoers file for devops
+      copy:
+        dest: /var/lib/lxc/{{ item }}/rootfs/etc/sudoers.d/devops
+        content: "devops  ALL=(ALL) NOPASSWD:ALL"
+        owner: root
+        group: root
+        mode: 0600
+      with_items: "{{ containers }}"
+
+    - name: Create .ssh directory for devops
+      file:
+        dest: /var/lib/lxc/{{ item }}/rootfs/home/devops/.ssh/
+        state: directory
+        owner: 1000
+        group: 1000
+        mode: 0700
+      with_items: "{{ containers }}"
+
+    - name: Create authorized_keys for devops
+      copy:
+        dest: /var/lib/lxc/{{ item }}/rootfs/home/devops/.ssh/authorized_keys
+        src: files/authorized_keys
+        owner: 1000
+        group: 1000
+        mode: 0400
+      with_items: "{{ containers }}"
+  tags:
+    - setup

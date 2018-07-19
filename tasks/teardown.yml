@@ -1,0 +1,17 @@
+---
+- block:
+  - name: Destroy container on local machine
+    lxc_container:
+      name: "{{ item }}"
+      state: absent
+    with_items: "{{ containers }}"
+    register: container_info
+
+  - name: Remove
+    lineinfile:
+      regexp: ".*{{ item }}$"
+      path: /etc/hosts
+      state: absent
+    with_items: "{{ containers }}"
+  tags:
+    - teardown
