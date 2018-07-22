@@ -7,5 +7,39 @@
         template: "{{ item.lxc_template  }}"
         template_options: "{{ item.lxc_template_opts }}"
       loop: "{{ baseline_containers }}"
+
+    - name: Create .ssh directory for root
+      file:
+        dest: "{{ lxc_dir }}/{{ item.name }}/rootfs/root/.ssh/"
+        state: directory
+        owner: root
+        group: root
+        mode: 0700
+      with_items: "{{ baseline_containers }}"
+
+    - name: Create authorized_keys for root
+      copy:
+        dest: "{{ lxc_dir }}/{{ item.name }}/rootfs/root/.ssh/authorized_keys"
+        content: "{{ lookup('file', auth_key) }}"
+        owner: root
+        group: root
+        mode: 0400
+      with_items: "{{ baseline_containers }}"
+
+    - name: Enable pubkey auth
+      lineinfile:
+        regexp: "PubkeyAuthentication"
+        line: "PubkeyAuthentication yes"
+        path: "{{ lxc_dir }}/{{ item.name }}/rootfs/etc/ssh/sshd_config"
+      loop: "{{ baseline_containers }}"
+
+    - name: Figure out epoch day
+      shell: "echo $(( $(date +%s) / 86400 ))"
+      register: epoch
+      run_once: True
+
+    - name: Unexpire root accounts
+      shell: awk '$1 == "root" { $3={{ epoch.stdout }} } 1' FS=':' OFS=':' {{ lxc_dir }}/{{ item.name }}/rootfs/etc/shadow > /tmp/shadow && mv /tmp/shadow {{ lxc_dir }}/{{ item.name }}/rootfs/etc/shadow
+      loop: "{{ baseline_containers }}"
   tags:
     - baseline

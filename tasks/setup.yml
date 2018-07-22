@@ -2,17 +2,23 @@
 - block:
     - name: Create containers
       lxc_container:
-        name: "{{ item.base }}"
+        name: "baseline_{{ item.base }}"
         clone_name: "{{ item.name }}"
-        #clone_snapshot: True
-        #backing_store: overlayfs
+        clone_snapshot: True
+        backing_store: overlayfs
       loop: "{{ containers }}"
 
-    - name: Wait for container networking
-      wait_for:
-        timeout: 5
+    - name: Start containers
+      lxc_container:
+        name: "{{ item.name }}"
+        state: started
+      with_items: "{{ containers }}"
 
-    - name: Check again b/c module doesn't get IP first time
+    - name: Wait for container networking (10s)
+      wait_for:
+        timeout: 10
+
+    - name: Obtain container IPs
       lxc_container:
         name: "{{ item.name }}"
       with_items: "{{ containers }}"
@@ -25,47 +31,12 @@
         insertafter: EOF
       with_items: "{{ container_info.results }}"
 
-    - name: Create .ssh directory for root
-      file:
-        dest: "{{ lxc_dir }}/{{ item.name }}/rootfs/root/.ssh/"
-        state: directory
-        owner: root
-        group: root
-        mode: 0700
-      with_items: "{{ containers }}"
-
-    - name: Create authorized_keys for root
-      copy:
-        dest: "{{ lxc_dir }}/{{ item.name }}/rootfs/root/.ssh/authorized_keys"
-        content: "{{ lookup('file', auth_key) }}"
-        owner: root
-        group: root
-        mode: 0400
-      with_items: "{{ containers }}"
-
-    - name: Enable pubkey auth
-      lineinfile:
-        regexp: "PubkeyAuthentication"
-        line: "PubkeyAuthentication Yes"
-        path: "{{ lxc_dir }}/{{ item.name }}/rootfs/etc/ssh/sshd_config"
-      loop: "{{ containers }}"
-
-    - name: Figure out epoch day
-      shell: "echo $(( $(date +%s) / 86400 ))"
-      register: epoch
-      run_once: True
-
-    - name: Unexpire root accounts
-      shell: awk '$1 == "root" { $3={{ epoch.stdout }} } 1' FS=':' OFS=':' {{ lxc_dir }}/{{ item.name }}/rootfs/etc/shadow > /tmp/shadow && mv /tmp/shadow {{ lxc_dir }}/{{ item.name }}/rootfs/etc/shadow
-      loop: "{{ containers }}"
-
     - name: Bootstrap python on ubuntu
       raw: apt install -y python
       delegate_to: "{{ item.name }}"
       remote_user: root
       when: 
-        - "'lxc_template' in item"
-        - "item.lxc_template == 'ubuntu'"
+        - "'ubuntu' in item.base"
       loop: "{{ containers }}"
 
     - name: Add {{ user }} 
