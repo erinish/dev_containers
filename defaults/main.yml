@@ -1,4 +1,31 @@
 containers:
-  - thing1
-  - thing2
-  - thing3
+  - thing1:
+    name: thing1
+    base: centos7
+  - thing2:
+    name: thing2
+    base: centos7
+  - thing3:
+    name: thing3
+    base: centos7
+lxc_dir: "/var/lib/lxc"
+lxc_template: centos
+lxc_template_opts: "--release 7"
+user: devops
+baseline_containers:
+  - centos6:
+    name: baseline_centos6
+    lxc_template: centos
+    lxc_template_opts: "--release 6"
+  - centos7:
+    name: baseline_centos7
+    lxc_template: centos
+    lxc_template_opts: "--release 7"
+  - ubuntu14:
+    name: baseline_ubuntu14
+    lxc_template: ubuntu
+    lxc_template_opts: "--release trusty"
+  - ubuntu16:
+    name: baseline_ubuntu16
+    lxc_template: ubuntu
+    lxc_template_opts: "--release xenial"

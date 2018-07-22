@@ -1,19 +1,20 @@
 ---
 - block:
-    - name: Create container on local machine
+    - name: Create containers
       lxc_container:
-        name: "{{ item }}"
-        state: started
-        template: centos
-      with_items: "{{ containers }}"
+        name: "{{ item.base }}"
+        clone_name: "{{ item.name }}"
+        #clone_snapshot: True
+        #backing_store: overlayfs
+      loop: "{{ containers }}"
 
     - name: Wait for container networking
       wait_for:
-        timeout: 15
+        timeout: 5
 
     - name: Check again b/c module doesn't get IP first time
       lxc_container:
-        name: "{{ item }}"
+        name: "{{ item.name }}"
       with_items: "{{ containers }}"
       register: container_info
 
@@ -24,44 +25,83 @@
         insertafter: EOF
       with_items: "{{ container_info.results }}"
 
-    - name: Install sudo to containers
-      yum:
-        name: sudo
-        installroot: /var/lib/lxc/{{ item }}/rootfs
-        state: installed
-      with_items: "{{ containers }}"
-
-    - name: Add devops user to containers
-      command: chroot /var/lib/lxc/{{ item }}/rootfs useradd devops
-      args:
-        creates: /var/lib/lxc/{{ item }}/rootfs/home/devops
-      with_items: "{{ containers }}"
-
-    - name: Place sudoers file for devops
-      copy:
-        dest: /var/lib/lxc/{{ item }}/rootfs/etc/sudoers.d/devops
-        content: "devops  ALL=(ALL) NOPASSWD:ALL"
+    - name: Create .ssh directory for root
+      file:
+        dest: "{{ lxc_dir }}/{{ item.name }}/rootfs/root/.ssh/"
+        state: directory
         owner: root
         group: root
-        mode: 0600
-      with_items: "{{ containers }}"
-
-    - name: Create .ssh directory for devops
-      file:
-        dest: /var/lib/lxc/{{ item }}/rootfs/home/devops/.ssh/
-        state: directory
-        owner: 1000
-        group: 1000
         mode: 0700
       with_items: "{{ containers }}"
 
-    - name: Create authorized_keys for devops
+    - name: Create authorized_keys for root
       copy:
-        dest: /var/lib/lxc/{{ item }}/rootfs/home/devops/.ssh/authorized_keys
-        src: files/authorized_keys
-        owner: 1000
-        group: 1000
+        dest: "{{ lxc_dir }}/{{ item.name }}/rootfs/root/.ssh/authorized_keys"
+        content: "{{ lookup('file', auth_key) }}"
+        owner: root
+        group: root
         mode: 0400
       with_items: "{{ containers }}"
+
+    - name: Enable pubkey auth
+      lineinfile:
+        regexp: "PubkeyAuthentication"
+        line: "PubkeyAuthentication Yes"
+        path: "{{ lxc_dir }}/{{ item.name }}/rootfs/etc/ssh/sshd_config"
+      loop: "{{ containers }}"
+
+    - name: Figure out epoch day
+      shell: "echo $(( $(date +%s) / 86400 ))"
+      register: epoch
+      run_once: True
+
+    - name: Unexpire root accounts
+      shell: awk '$1 == "root" { $3={{ epoch.stdout }} } 1' FS=':' OFS=':' {{ lxc_dir }}/{{ item.name }}/rootfs/etc/shadow > /tmp/shadow && mv /tmp/shadow {{ lxc_dir }}/{{ item.name }}/rootfs/etc/shadow
+      loop: "{{ containers }}"
+
+    - name: Bootstrap python on ubuntu
+      raw: apt install -y python
+      delegate_to: "{{ item.name }}"
+      remote_user: root
+      when: 
+        - "'lxc_template' in item"
+        - "item.lxc_template == 'ubuntu'"
+      loop: "{{ containers }}"
+
+    - name: Add {{ user }} 
+      user:
+        name: "{{ user }}"
+        state: present
+      delegate_to: "{{ item.name }}"
+      remote_user: root
+      loop: "{{ containers }}"
+
+    - name: Authorized key for {{ user }}
+      authorized_key:
+        user: "{{ user }}"
+        state: present
+        key: "{{ lookup('file', auth_key) }}"
+      delegate_to: "{{ item.name }}"
+      remote_user: root
+      loop: "{{ containers }}"
+
+    - name: Ensure sudo is installed
+      package:
+        name: sudo
+        state: present
+      delegate_to: "{{ item.name }}"
+      remote_user: root
+      loop: "{{ containers }}"
+
+    - name: Add {{ user }} to sudoers
+      copy:
+        dest: /etc/sudoers.d/{{ user }}_sudo
+        content: "{{ user }} ALL = (ALL) NOPASSWD:ALL"
+        owner: root
+        group: root
+        mode: 0400
+      delegate_to: "{{ item.name }}"
+      remote_user: root
+      loop: "{{ containers }}"
   tags:
     - setup

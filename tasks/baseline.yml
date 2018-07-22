@@ -1,0 +1,11 @@
+---
+- block: 
+    - name: Create baseline containers
+      lxc_container:
+        name: "{{ item.name }}"
+        state: stopped
+        template: "{{ item.lxc_template  }}"
+        template_options: "{{ item.lxc_template_opts }}"
+      loop: "{{ baseline_containers }}"
+  tags:
+    - baseline
