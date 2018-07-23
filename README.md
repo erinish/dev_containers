@@ -1,14 +1,15 @@
-Role Name
+Dev Containers
 =========
-
-dev_containers
 
 Requirements
 ------------
 
-Requires running and working LXC, and lxc library for Python.
+Requires running and working LXC, and LXC library for Python.
 
-Currently supports CentOS7 host and containers. More to come.
+CentOS containers on Ubuntu need yum.
+
+Ubuntu containers on CentOS need debootstrap.
+
 
 Role Variables
 --------------
@@ -25,7 +26,6 @@ auth_key: "/path/to/pubkey"
 
 Example Playbook
 ----------------
----
 - name: Setup a test env
   hosts: localhost
   roles:
