@@ -3,6 +3,7 @@
     - name: Create containers
       lxc_container:
         name: "baseline_{{ item.base }}"
+        state: stopped
         clone_name: "{{ item.name }}"
         clone_snapshot: True
         backing_store: overlayfs
