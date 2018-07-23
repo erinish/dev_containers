@@ -17,7 +17,7 @@
   tags:
     - setup
 
-- name: Setup tasks
+- name: Teardown tasks
   include_tasks: teardown.yml
   when: normal_run is not defined
   tags:
