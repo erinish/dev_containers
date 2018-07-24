@@ -1,6 +1,8 @@
 Dev Containers
 =========
 
+Create arbitrary containers [centos6,7 ubuntu14,16] for further configuration / testing via Ansible.
+
 Requirements
 ------------
 
@@ -14,6 +16,7 @@ Ubuntu containers on CentOS need debootstrap.
 Role Variables
 --------------
 
+```YAML
 containers:
   - thing1:
     name: containername
@@ -22,10 +25,11 @@ user: "username"
 lxc_template: "templatename"
 lxc_dir: "/path/to/dir"
 auth_key: "/path/to/pubkey"
-
+```
 
 Example Playbook
 ----------------
+```YAML
 - name: Setup a test env
   hosts: localhost
   roles:
@@ -45,6 +49,7 @@ Example Playbook
         - thing4:
           name: diane
           base: ubuntu16
+```
 
 License
 -------
