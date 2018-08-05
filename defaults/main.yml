@@ -29,3 +29,8 @@ baseline_containers:
     name: baseline_ubuntu16
     lxc_template: ubuntu
     lxc_template_opts: "--release xenial"
+  - ubuntu18:
+    name: baseline_ubuntu18
+    lxc_template: ubuntu
+    lxc_template_opts: "--release bionic"
+
