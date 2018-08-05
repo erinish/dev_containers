@@ -44,6 +44,7 @@
       user:
         name: "{{ user }}"
         state: present
+        shell: /bin/bash
       delegate_to: "{{ item.name }}"
       remote_user: root
       loop: "{{ containers }}"
